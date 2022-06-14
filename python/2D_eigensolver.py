@@ -1,38 +1,79 @@
 #! /bin/python3
-
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.constants import pi
+from scipy.constants import pi, hbar
+from scipy.signal import convolve2d
+from numpy.polynomial.hermite import Hermite as H
 
-# Domain                (2D)
-# set up bounds
-N = 10
-x_l, x_r = (0, 1)
-y_l, y_r = (0, 1)
-# discretize space
-x_1D = np.linspace(x_l, x_r, N)
-y_1D = np.linspace(y_l, y_r, N)
-x_2D, y_2D = np.meshgrid(x_1D, y_1D)
-# x_list -> x_grid, y_grid
+# Set up constants
+# Number of points (For now, a square domain)
+N = 20
+# bounds for 2D particle box
+x_min, x_max = (0, 1e-9)
+x_center = (x_min - x_max) / 2
+y_min, y_max = (0, 1e-9)
+y_center = (y_min - y_max) / 2
+L_x = x_max - x_min
+L_y = y_max - y_min
+# "spring" constant for potential
+k = 1
+h_bar = hbar
+# electron mass
+m = 9.11e-31
 
-# Potential Energy      (2D)
-# V(x, y)
-# V_list -> V_grid
-# V(x_list) -> V(x_grid, y_grid)
-# V(x, y)[0] -> V_grid[0]
-V_2D = np.ones(np.shape(x_2D))
-# V_3D = np.array([np.diag(V_2D[i]) for i in range(N)])
-print(V_3D)
-exit()
+# spacial discretization
+x_list = np.linspace(x_min, x_max, N)
+dx = x_list[1] - x_list[0]
 
-# Kinetic Energy        (2D)
-# p^2 / 2m = -(hbar^2 / 2m) * Del^2 = -(hbar^2 / 2m) * (d2/dx2 + d2/dy2) = px^2 / 2m + py^2 / 2m
+# Potential Energy - Set up potential and corresponding matrix
+V_list = np.zeros(N * N)
+V_grid = np.diag(V_list)
 
+# Set up Kinetic Energy operator
+# Done by convolving a kernel with an identity matrix in order to correctly
+# construct the kinetic energy operator based on a 2nd finite difference
+# derivative
+K_grid = np.identity(N)
+K_kernel = np.zeros((3, 3))
+K_kernel[1, 0] =  1
+K_kernel[1, 1] = -2
+K_kernel[1, 2] =  1
+K_grid = -h_bar**2 * convolve2d(K_grid, K_kernel, mode='same') / (2 * m * dx**2)
 
-# Hamiltonian           (2D)
-# H = K + V
+# construct the Hamiltonian!
+H_grid = K_grid + V_grid
 
-# Calculate Eigenvalues (2D)
-# ???
+# Calculate Eigenvalues, they come out sorted via eigh
+eigenval, eigenvec = np.linalg.eigh(H_grid)
 
-# Compare Eigenvalues to analytic solutions (2D)
+# Compare Eigenvalues to analytic solutions
+# Constructing Analytic Eigenvectors
+N_list = np.array(np.arange(1, N+1))
+N_grid, x_grid = np.meshgrid(N_list, x_list)
+# E = np.sqrt(2 * dx / L) * np.sin(N_grid * pi * x_grid / L)
+# Eigenvalues for finite square well are modeled considering the -1th and Nth (out of bounds) nodes are the first nodes with V->inf, thereby making the well L + 2*dx wide, with the origin at the left point
+E = np.sqrt(2 * dx / (L + dx + dx)) * np.sin(N_grid * pi * (x_grid + dx) / (L + dx + dx))
+w = np.sqrt(k / m)
+
+# Calculation of errors
+error           = E * E - eigenvec *  eigenvec
+sq_err_grid     = error * error
+avg_sq_err      = np.sum(sq_err_grid, 1) / N
+std_dev_sq_err  = np.std(sq_err_grid, 1)
+max_sq_err      = np.max(sq_err_grid, 1)
+print("-----------------------------------------------")
+print("n\tAvg.Err\t\tStd.Dev\t\tMax.Err")
+n = 0
+for avg_, std_, max_ in zip(avg_sq_err, std_dev_sq_err, max_sq_err):
+    print("%d\t%e\t%e\t%e" %(n, avg_, std_, max_))
+    n += 1
+print("-----------------------------------------------")
+
+# Plotting Eigenvalues
+for i in range(5):
+    plt.plot(x_list, error[:, i]**2, label="Error")
+    plt.plot(x_list, eigenvec[:, i]**2, label="Numerical")
+    plt.plot(x_list, E[:, i]**2, label="Analytical")
+    plt.legend()
+    plt.show()
+plt.close()
