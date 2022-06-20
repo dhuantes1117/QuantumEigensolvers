@@ -7,7 +7,7 @@ from numpy.polynomial.hermite import Hermite as H
 
 # Set up constants
 # Number of points (For now, a square domain)
-N = 20
+N = 40
 # bounds for 2D particle box
 x_min, x_max = (0, 1e-9)
 x_center = (x_min - x_max) / 2
@@ -23,28 +23,71 @@ m = 9.11e-31
 
 # spacial discretization
 x_list = np.linspace(x_min, x_max, N)
+y_list = np.linspace(y_min, y_max, N)
+x_grid, y_grid = np.meshgrid(x_list, y_list)
 dx = x_list[1] - x_list[0]
+dy = y_list[1] - y_list[0]
 
 # Potential Energy - Set up potential and corresponding matrix
 V_list = np.zeros(N * N)
 V_grid = np.diag(V_list)
 
-# Set up Kinetic Energy operator
+# Set up momentum_sq operator
 # Done by convolving a kernel with an identity matrix in order to correctly
-# construct the kinetic energy operator based on a 2nd finite difference
+# construct the momentum_sq operator based on a 2nd finite difference
 # derivative
-K_grid = np.identity(N)
-K_kernel = np.zeros((3, 3))
-K_kernel[1, 0] =  1
-K_kernel[1, 1] = -2
-K_kernel[1, 2] =  1
-K_grid = -h_bar**2 * convolve2d(K_grid, K_kernel, mode='same') / (2 * m * dx**2)
+p_sq_grid = np.identity(N)
+p_sq_kernel = np.zeros((3, 3))
+p_sq_kernel[1, 0] =  1
+p_sq_kernel[1, 1] = -2
+p_sq_kernel[1, 2] =  1
+p_sq_grid = -h_bar**2 * convolve2d(p_sq_grid, p_sq_kernel, mode='same') / (2 * m * dx**2)
+
+p_sq_x = np.identity(N**2)
+p_sq_y = np.identity(N**2)
+
+for big_i in range(N):
+	i0 = big_i * N
+	i1 = (big_i + 1) * N
+	p_sq_x[i0:i1, i0:i1] = np.ones((N, N)) * p_sq_grid
+	for big_j in range(N):
+		j0 = big_j * N
+		j1 = (big_j + 1) * N
+		p_sq_y[i0:i1,j0:j1] = np.identity(N) * p_sq_grid[big_i, big_j]
+
+K_grid = p_sq_x + p_sq_y
+
+"""
+for i in range(N**2):
+	for j in range(N**2):
+		print("%.1f" %(p_sq_x[i, j]) , end='\t')
+	print()
+print()
+print()
+
+for i in range(N**2):
+	for j in range(N**2):
+		print("%.1f" %(p_sq_y[i, j]) , end='\t')
+	print()
+"""
+
 
 # construct the Hamiltonian!
 H_grid = K_grid + V_grid
 
 # Calculate Eigenvalues, they come out sorted via eigh
 eigenval, eigenvec = np.linalg.eigh(H_grid)
+eigengrid = np.array([eig.reshape((N, N)) for eig in eigenvec.T])
+
+
+for k in np.arange(N):
+	fig = plt.figure()
+	ax = fig.add_subplot(111, projection='3d')
+	ax.plot_surface(x_grid, y_grid, eigengrid[k] * eigengrid[k])
+	plt.show()
+	plt.close()
+exit()
+
 
 # Compare Eigenvalues to analytic solutions
 # Constructing Analytic Eigenvectors
