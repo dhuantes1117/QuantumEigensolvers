@@ -11,5 +11,6 @@ from scipy.constants import hbar, pi
 # Calculate C_mn matrices
 # Calculate E^1_n values
 # Calculate unperturbed eigenvectors
+# Calculate the transfer probabilities
 # Calculate new eigenvectors
 # Hurray
