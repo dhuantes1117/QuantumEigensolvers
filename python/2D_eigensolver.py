@@ -7,7 +7,7 @@ from numpy.polynomial.hermite import Hermite as H
 
 # Set up constants
 # Number of points (For now, a square domain)
-N = 40
+N = 20
 # bounds for 2D particle box
 x_min, x_max = (0, 1e-9)
 x_center = (x_min - x_max) / 2
@@ -84,6 +84,10 @@ for k in np.arange(N):
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection='3d')
 	ax.plot_surface(x_grid, y_grid, eigengrid[k] * eigengrid[k])
+	ax.set_xlabel("x(m)")
+	ax.set_ylabel("y(m)")
+	ax.set_zlabel("$\psi^*\psi$")
+	ax.set_title("2D Infinite Box Well")
 	plt.show()
 	plt.close()
 exit()
